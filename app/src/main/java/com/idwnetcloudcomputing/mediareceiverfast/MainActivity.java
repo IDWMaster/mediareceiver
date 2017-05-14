@@ -4,6 +4,7 @@ import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.LinearLayoutCompat;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.TextView;
@@ -28,9 +29,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
                 try {
-                    final MediaCodec codec = MediaCodec.createByCodecName("video/avc");
-                    codec.setOutputSurface(holder.getSurface());
+                    final MediaCodec codec = MediaCodec.createDecoderByType("video/avc");
                     codec.configure(MediaFormat.createVideoFormat("video/avc",1280,720),holder.getSurface(),null,0);
+                    codec.setOutputSurface(holder.getSurface());
+
                     codec.start();
                     Thread netThread = new Thread(new Runnable() {
                         @Override
@@ -38,7 +40,13 @@ public class MainActivity extends AppCompatActivity {
                             while(true) {
                                 int bufferId = codec.dequeueInputBuffer(-1);
                                 ByteBuffer buffy = codec.getInputBuffer(bufferId);
-                                loadPacket(buffy);
+                                int len = loadPacket(buffy);
+                                codec.queueInputBuffer(bufferId,0,len,0,0);
+                                MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+                                int idx = codec.dequeueOutputBuffer(info,0);
+                                if(idx>=0) {
+                                    codec.releaseOutputBuffer(idx,true);
+                                }
                             }
                         }
                     });
@@ -59,5 +67,5 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-    public static native void loadPacket(ByteBuffer buffy);
+    public static native int loadPacket(ByteBuffer buffy);
 }
